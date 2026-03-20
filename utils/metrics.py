@@ -65,6 +65,8 @@ def compute_portfolio_returns(
 
 def compute_growth(returns: pd.Series, initial: float = 10000) -> pd.Series:
     """Compute growth of $initial investment from daily returns."""
+    if len(returns) == 0:
+        return pd.Series([initial], dtype=float)
     return initial * (1 + returns).cumprod()
 
 
