@@ -45,9 +45,9 @@ def compute_portfolio_returns(
     ret_array = daily_returns.values  # (n_days, n_assets)
     port_rets = np.empty(len(daily_returns))
 
-    # Find period boundaries
-    period_idx = np.array([hash(g) for g in groups])
-    changes = np.where(np.diff(period_idx) != 0)[0] + 1
+    # Find period boundaries via direct string comparison (avoids int64 overflow from hash())
+    period_arr = np.asarray(groups)
+    changes = np.where(period_arr[:-1] != period_arr[1:])[0] + 1
     starts = np.concatenate([[0], changes])
     ends = np.concatenate([changes, [len(daily_returns)]])
 
