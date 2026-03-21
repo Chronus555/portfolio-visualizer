@@ -6,7 +6,7 @@ import streamlit as st
 from datetime import datetime
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_prices(tickers: list[str], start: str, end: str) -> pd.DataFrame:
     """Fetch adjusted close prices for a list of tickers.
 
@@ -30,7 +30,7 @@ def fetch_prices(tickers: list[str], start: str, end: str) -> pd.DataFrame:
     return prices
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_risk_free_rate(start: str, end: str) -> pd.Series:
     """Fetch 3-month T-bill rate as a proxy for risk-free rate."""
     try:

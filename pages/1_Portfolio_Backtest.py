@@ -137,6 +137,11 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
     if not port_results:
         st.stop()
 
+    # Pre-compute growth and drawdowns once so tabs can reuse them
+    for p in port_results:
+        p["growth"] = compute_growth(p["returns"], initial_investment)
+        p["drawdown"] = drawdown_series(p["returns"])
+
     # ── Summary Metrics (top cards) ─────────────────────────────────────────
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     for p in port_results:
@@ -148,7 +153,7 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         with cols[2]: metric_with_tooltip("Sharpe", f"{sharpe_ratio(r):.2f}", "Sharpe Ratio")
         with cols[3]: metric_with_tooltip("Max DD", f"{max_drawdown(r):.2%}", "Max Drawdown")
         with cols[4]:
-            growth_val = compute_growth(r, initial_investment)
+            growth_val = p["growth"]
             final_val = growth_val.iloc[-1] if len(growth_val) > 0 else initial_investment
             metric_with_tooltip("Final Value", f"${final_val:,.0f}")
         with cols[5]:
@@ -165,7 +170,7 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         fig = go.Figure()
         growth_data = {}
         for idx, p in enumerate(port_results):
-            growth = compute_growth(p["returns"], initial_investment)
+            growth = p["growth"]
 
             # Add annual contributions (only when we have a real DatetimeIndex)
             if annual_contribution > 0 and isinstance(growth.index, pd.DatetimeIndex) and len(growth) > 0:
@@ -237,7 +242,7 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         fig_dd = go.Figure()
         dd_data = {}
         for idx, p in enumerate(port_results):
-            dd = drawdown_series(p["returns"])
+            dd = p["drawdown"]
             dd_data[p["name"]] = dd
             fig_dd.add_trace(go.Scatter(
                 x=dd.index, y=dd.values,
@@ -252,7 +257,7 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
 
         # Underwater period table
         for p in port_results:
-            dd = drawdown_series(p["returns"])
+            dd = p["drawdown"]
             if len(dd) > 0:
                 min_dd_date = dd.idxmin()
                 st.caption(f"**{p['name']}** worst drawdown: **{dd.min():.2%}** on {min_dd_date.strftime('%Y-%m-%d')}")
