@@ -149,7 +149,8 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         with cols[3]: metric_with_tooltip("Max DD", f"{max_drawdown(r):.2%}", "Max Drawdown")
         with cols[4]:
             growth_val = compute_growth(r, initial_investment)
-            metric_with_tooltip("Final Value", f"${growth_val.iloc[-1]:,.0f}")
+            final_val = growth_val.iloc[-1] if len(growth_val) > 0 else initial_investment
+            metric_with_tooltip("Final Value", f"${final_val:,.0f}")
         with cols[5]:
             total_ret = (1 + r).prod() - 1
             metric_with_tooltip("Total Return", f"{total_ret:.2%}")
