@@ -82,6 +82,13 @@ class TestComputeGrowth:
         g = compute_growth(EMPTY, 5_000)
         assert g.iloc[-1] == pytest.approx(5_000)
 
+    def test_normal_returns_have_datetimeindex(self):
+        """Growth from dated returns must keep the DatetimeIndex so that
+        date.year works in the annual-contributions loop."""
+        r = make_returns(252)
+        g = compute_growth(r, 10_000)
+        assert isinstance(g.index, pd.DatetimeIndex)
+
     def test_all_zero_returns(self):
         r = pd.Series([0.0] * 5)
         g = compute_growth(r, 1_000)
@@ -233,6 +240,12 @@ class TestDrawdown:
     def test_max_drawdown_all_positive(self):
         r = pd.Series([0.01] * 252)
         assert max_drawdown(r) == pytest.approx(0.0, abs=1e-10)
+
+    def test_drawdown_series_empty_returns_empty(self):
+        """drawdown_series on empty returns must produce empty Series — not crash.
+        Guards the idxmin().strftime() call in the Drawdown tab."""
+        dd = drawdown_series(EMPTY)
+        assert len(dd) == 0
 
     def test_drawdown_series_shape(self):
         r = make_returns(100)

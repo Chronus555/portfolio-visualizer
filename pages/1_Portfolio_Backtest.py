@@ -166,8 +166,8 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         for idx, p in enumerate(port_results):
             growth = compute_growth(p["returns"], initial_investment)
 
-            # Add annual contributions
-            if annual_contribution > 0:
+            # Add annual contributions (only when we have a real DatetimeIndex)
+            if annual_contribution > 0 and isinstance(growth.index, pd.DatetimeIndex) and len(growth) > 0:
                 growth_adj = growth.copy()
                 years_seen = set()
                 for date in growth_adj.index:
@@ -252,8 +252,9 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         # Underwater period table
         for p in port_results:
             dd = drawdown_series(p["returns"])
-            min_dd_date = dd.idxmin()
-            st.caption(f"**{p['name']}** worst drawdown: **{dd.min():.2%}** on {min_dd_date.strftime('%Y-%m-%d')}")
+            if len(dd) > 0:
+                min_dd_date = dd.idxmin()
+                st.caption(f"**{p['name']}** worst drawdown: **{dd.min():.2%}** on {min_dd_date.strftime('%Y-%m-%d')}")
 
     # ── Annual Returns ──────────────────────────────────────────────────────
     with tab_annual:
