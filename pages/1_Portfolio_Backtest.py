@@ -149,7 +149,8 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         with cols[3]: metric_with_tooltip("Max DD", f"{max_drawdown(r):.2%}", "Max Drawdown")
         with cols[4]:
             growth_val = compute_growth(r, initial_investment)
-            metric_with_tooltip("Final Value", f"${growth_val.iloc[-1]:,.0f}")
+            final_val = growth_val.iloc[-1] if len(growth_val) > 0 else initial_investment
+            metric_with_tooltip("Final Value", f"${final_val:,.0f}")
         with cols[5]:
             total_ret = (1 + r).prod() - 1
             metric_with_tooltip("Total Return", f"{total_ret:.2%}")
@@ -166,8 +167,8 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         for idx, p in enumerate(port_results):
             growth = compute_growth(p["returns"], initial_investment)
 
-            # Add annual contributions
-            if annual_contribution > 0:
+            # Add annual contributions (only when we have a real DatetimeIndex)
+            if annual_contribution > 0 and isinstance(growth.index, pd.DatetimeIndex) and len(growth) > 0:
                 growth_adj = growth.copy()
                 years_seen = set()
                 for date in growth_adj.index:
@@ -252,8 +253,9 @@ if st.button("🚀 Run Backtest", type="primary", use_container_width=True) and 
         # Underwater period table
         for p in port_results:
             dd = drawdown_series(p["returns"])
-            min_dd_date = dd.idxmin()
-            st.caption(f"**{p['name']}** worst drawdown: **{dd.min():.2%}** on {min_dd_date.strftime('%Y-%m-%d')}")
+            if len(dd) > 0:
+                min_dd_date = dd.idxmin()
+                st.caption(f"**{p['name']}** worst drawdown: **{dd.min():.2%}** on {min_dd_date.strftime('%Y-%m-%d')}")
 
     # ── Annual Returns ──────────────────────────────────────────────────────
     with tab_annual:

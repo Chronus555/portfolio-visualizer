@@ -28,7 +28,7 @@ def compute_portfolio_returns(
     w = np.array([weights[t] for t in tickers])
     daily_returns = prices[tickers].pct_change().dropna()
 
-    if rebalance == "daily" or rebalance == "none" and len(daily_returns) < 22:
+    if rebalance == "daily":
         port_returns = daily_returns.dot(w)
         return port_returns
 
@@ -65,6 +65,8 @@ def compute_portfolio_returns(
 
 def compute_growth(returns: pd.Series, initial: float = 10000) -> pd.Series:
     """Compute growth of $initial investment from daily returns."""
+    if len(returns) == 0:
+        return pd.Series([initial], dtype=float)
     return initial * (1 + returns).cumprod()
 
 
@@ -147,8 +149,9 @@ def monthly_returns_table(returns: pd.Series) -> pd.DataFrame:
     monthly = (1 + returns).groupby([returns.index.year, returns.index.month]).prod() - 1
     monthly.index.names = ["Year", "Month"]
     table = monthly.unstack(level="Month")
-    table.columns = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][:len(table.columns)]
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    table.columns = [month_names[m - 1] for m in table.columns]
     return table
 
 
