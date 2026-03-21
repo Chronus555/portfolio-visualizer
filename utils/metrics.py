@@ -91,24 +91,32 @@ def annual_volatility(returns: pd.Series) -> float:
 
 
 def sharpe_ratio(returns: pd.Series, rf_annual: float = 0.0) -> float:
-    """Annualized Sharpe Ratio."""
-    vol = annual_volatility(returns)
+    """Annualized Sharpe Ratio (arithmetic mean excess return / annualized vol)."""
+    if len(returns) < 2:
+        return 0.0
+    daily_rf = (1 + rf_annual) ** (1 / 252) - 1
+    excess = returns - daily_rf
+    vol = excess.std()
     if vol == 0:
         return 0.0
-    return (cagr(returns) - rf_annual) / vol
+    return float(excess.mean() / vol * np.sqrt(252))
 
 
 def sortino_ratio(returns: pd.Series, rf_annual: float = 0.0) -> float:
-    """Annualized Sortino Ratio."""
-    if len(returns) == 0:
+    """Annualized Sortino Ratio.
+
+    Downside deviation = sqrt(mean of squared negative excess returns over ALL
+    periods), annualized. This is the standard semi-deviation formula and
+    correctly penalizes both the frequency and magnitude of losses.
+    """
+    if len(returns) < 2:
         return 0.0
-    neg = returns[returns < 0]
-    if len(neg) < 2:
+    daily_rf = (1 + rf_annual) ** (1 / 252) - 1
+    excess = returns - daily_rf
+    downside = np.sqrt(np.mean(np.minimum(excess, 0) ** 2)) * np.sqrt(252)
+    if downside == 0:
         return 0.0
-    downside = neg.std() * np.sqrt(252)
-    if downside == 0 or np.isnan(downside):
-        return 0.0
-    return (cagr(returns) - rf_annual) / float(downside)
+    return float(excess.mean() * 252 / downside)
 
 
 def max_drawdown(returns: pd.Series) -> float:
