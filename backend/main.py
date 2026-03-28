@@ -2,6 +2,38 @@
 Portfolio Visualizer — FastAPI Backend
 """
 
+# ── Matplotlib compatibility patch ──────────────────────────────────────────
+# PyPortfolioOpt's plotting.py calls plt.style.use("seaborn-deep") at import
+# time.  matplotlib ≥ 3.6 renamed these styles to "seaborn-v0_8-deep"; the
+# old aliases were fully removed in 3.9.  Register the alias before anything
+# triggers a pypfopt import so the server starts cleanly on any mpl version.
+try:
+    import matplotlib
+    import matplotlib.style.core as _mpl_style_core
+    _mpl_style_core.reload_library()          # ensure library is populated
+    _lib = matplotlib.style.library
+    for _old, _new in [
+        ("seaborn-deep",       "seaborn-v0_8-deep"),
+        ("seaborn-whitegrid",  "seaborn-v0_8-whitegrid"),
+        ("seaborn-darkgrid",   "seaborn-v0_8-darkgrid"),
+        ("seaborn-muted",      "seaborn-v0_8-muted"),
+        ("seaborn-pastel",     "seaborn-v0_8-pastel"),
+        ("seaborn-bright",     "seaborn-v0_8-bright"),
+        ("seaborn-dark",       "seaborn-v0_8-dark"),
+        ("seaborn-colorblind", "seaborn-v0_8-colorblind"),
+        ("seaborn-notebook",   "seaborn-v0_8-notebook"),
+        ("seaborn-paper",      "seaborn-v0_8-paper"),
+        ("seaborn-poster",     "seaborn-v0_8-poster"),
+        ("seaborn-talk",       "seaborn-v0_8-talk"),
+        ("seaborn-ticks",      "seaborn-v0_8-ticks"),
+        ("seaborn",            "seaborn-v0_8"),
+    ]:
+        if _old not in _lib and _new in _lib:
+            _lib[_old] = _lib[_new]
+except Exception:
+    pass  # best-effort — never block startup
+# ── End patch ────────────────────────────────────────────────────────────────
+
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
