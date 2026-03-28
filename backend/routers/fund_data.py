@@ -84,17 +84,16 @@ async def screen_funds(
 
 @router.get("/validate")
 async def validate_ticker(ticker: str = Query(...)):
-    """Check if a ticker is valid and return basic info."""
-    try:
-        t = yf.Ticker(ticker.upper())
-        hist = t.history(period="1mo")
-        if hist.empty:
-            return {"valid": False, "ticker": ticker.upper()}
-        info = t.info
-        return {
-            "valid": True,
-            "ticker": ticker.upper(),
-            "name": info.get("longName") or info.get("shortName", ticker.upper()),
-        }
-    except Exception:
-        return {"valid": False, "ticker": ticker.upper()}
+    """Check if a ticker symbol looks valid.
+
+    Cloud hosts are blocked/rate-limited by Yahoo Finance so we cannot
+    fetch live data to verify existence.  We validate the symbol format
+    only; the analysis endpoints will surface a proper error if the ticker
+    truly has no data on Yahoo Finance.
+    """
+    import re
+    sym = ticker.strip().upper()
+    _TICKER_RE = re.compile(r'^[A-Z0-9][A-Z0-9.\-]{0,9}$')
+    if not sym or not _TICKER_RE.match(sym):
+        return {"valid": False, "ticker": sym, "reason": "Invalid ticker format"}
+    return {"valid": True, "ticker": sym}

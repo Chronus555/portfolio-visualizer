@@ -145,35 +145,23 @@ def get_ticker_info(ticker: str) -> Dict:
 def validate_tickers(tickers: List[str]) -> Tuple[List[str], List[str]]:
     """Return (valid_tickers, invalid_tickers).
 
-    Uses yf.download (more reliable on cloud hosts than Ticker.history).
-    If Yahoo Finance is unreachable/rate-limited we optimistically treat
-    all tickers as valid so a transient network blip never blocks the user.
+    Cloud hosts (Render, etc.) are often blocked or rate-limited by Yahoo
+    Finance, so we cannot rely on data fetches to prove a ticker exists.
+    Strategy: only mark a ticker INVALID if it fails a basic format check
+    (empty string, >10 chars, contains illegal chars).  Everything that
+    looks like a real ticker symbol is assumed valid — the analysis
+    endpoints will surface a proper error if the ticker truly has no data.
     """
+    import re
+    # Ticker pattern: 1–10 uppercase letters/digits, optionally with . or -
+    _TICKER_RE = re.compile(r'^[A-Z0-9][A-Z0-9.\-]{0,9}$')
+
     valid, invalid = [], []
     for t in tickers:
-        try:
-            df = yf.download(
-                t,
-                period="5d",
-                auto_adjust=True,
-                progress=False,
-                threads=False,
-            )
-            if df is not None and not df.empty:
-                valid.append(t)
-            else:
-                # Second attempt: fast_info (lighter call)
-                try:
-                    fi = yf.Ticker(t).fast_info
-                    if fi.get("regularMarketPrice") or fi.get("lastPrice"):
-                        valid.append(t)
-                    else:
-                        invalid.append(t)
-                except Exception:
-                    # Network issue — assume valid to avoid false rejections
-                    valid.append(t)
-        except Exception:
-            # On any error (timeout, rate-limit) treat as valid
+        sym = t.strip().upper()
+        if not sym or not _TICKER_RE.match(sym):
+            invalid.append(t)
+        else:
             valid.append(t)
     return valid, invalid
 
