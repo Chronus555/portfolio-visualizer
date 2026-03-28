@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -5,6 +6,19 @@ __pycache__/
 .venv
 venv/
 *.egg-info/
-dist/
 build/
 .DS_Store
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Logs
+*.log
+backend.log
+frontend.log
+
+# Render / local dev artifacts
+.claude/
+start_backend.bat
