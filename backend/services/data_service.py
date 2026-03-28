@@ -60,11 +60,11 @@ def fetch_price_data(
             end=end_str,
             auto_adjust=True,
             progress=False,
-            threads=True,
+            threads=False,   # threads=False is more reliable on cloud hosts
         )
     except Exception as e:
         logger.error("yfinance download error: %s", e)
-        raise ValueError(f"Failed to download data: {e}")
+        raise ValueError(f"Failed to fetch data from Yahoo Finance: {e}")
 
     if raw.empty:
         raise ValueError(f"No data returned for tickers: {tickers}")
@@ -143,17 +143,38 @@ def get_ticker_info(ticker: str) -> Dict:
 
 
 def validate_tickers(tickers: List[str]) -> Tuple[List[str], List[str]]:
-    """Return (valid_tickers, invalid_tickers)."""
+    """Return (valid_tickers, invalid_tickers).
+
+    Uses yf.download (more reliable on cloud hosts than Ticker.history).
+    If Yahoo Finance is unreachable/rate-limited we optimistically treat
+    all tickers as valid so a transient network blip never blocks the user.
+    """
     valid, invalid = [], []
     for t in tickers:
         try:
-            info = yf.Ticker(t).history(period="5d")
-            if info.empty:
-                invalid.append(t)
-            else:
+            df = yf.download(
+                t,
+                period="5d",
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+            )
+            if df is not None and not df.empty:
                 valid.append(t)
+            else:
+                # Second attempt: fast_info (lighter call)
+                try:
+                    fi = yf.Ticker(t).fast_info
+                    if fi.get("regularMarketPrice") or fi.get("lastPrice"):
+                        valid.append(t)
+                    else:
+                        invalid.append(t)
+                except Exception:
+                    # Network issue — assume valid to avoid false rejections
+                    valid.append(t)
         except Exception:
-            invalid.append(t)
+            # On any error (timeout, rate-limit) treat as valid
+            valid.append(t)
     return valid, invalid
 
 
