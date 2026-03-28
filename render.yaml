@@ -1,27 +1,25 @@
 services:
-  # ── Backend API (FastAPI + Docker) ─────────────────────────────────────────
+  # ── Backend API (FastAPI — native Python, no Docker) ───────────────────────
   - type: web
-    name: portfolio-visualizer-api
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    name: portfolio-visualizer-api-4cdq
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     plan: free
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11"
-      - key: PORT
-        value: "8000"
+        value: "3.11.0"
 
   # ── Frontend (React static site) ──────────────────────────────────────────
   - type: web
-    name: portfolio-visualizer
+    name: portfolio-visualizer-4cdq
     runtime: static
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
     pullRequestPreviewsEnabled: false
     envVars:
       - key: VITE_API_URL
-        value: https://portfolio-visualizer-api.onrender.com/api
+        value: https://portfolio-visualizer-api-4cdq.onrender.com/api
     routes:
       - type: rewrite
         source: /*
