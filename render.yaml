@@ -1,14 +1,11 @@
 services:
-  # ── Backend API (FastAPI — native Python, no Docker) ───────────────────────
+  # ── Backend API (FastAPI + Docker) ─────────────────────────────────────────
   - type: web
     name: portfolio-visualizer-api-4cdq
-    runtime: python
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: free
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
 
   # ── Frontend (React static site) ──────────────────────────────────────────
   - type: web
