@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useQueries } from '@tanstack/react-query'
 import { Eye, Plus, Trash2, RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { validateTicker } from '../api/client'
 import toast from 'react-hot-toast'
+
+const TICKER_RE = /^[A-Z0-9][A-Z0-9.\-]{0,9}$/
 
 const STORAGE_KEY = 'pv_watchlist'
 
@@ -16,17 +16,15 @@ const saveWatchlist = (list) => {
 }
 
 function TickerCard({ ticker, onRemove }) {
-  // We use validateTicker which gives us name + valid status — for a real-time price
-  // we'd need a different endpoint; here we show a "live-ish" card with yfinance data
-  const [price, setPrice] = useState(null)
   const [loading, setLoading] = useState(true)
   const [info, setInfo] = useState(null)
 
   useEffect(() => {
     let cancelled = false
+    const base = import.meta.env.VITE_API_URL || '/api'
     setLoading(true)
-    fetch(`/api/funds/validate?ticker=${ticker}`)
-      .then(r => r.json())
+    fetch(`${base}/funds/search?q=${ticker}`)
+      .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!cancelled) { setInfo(d); setLoading(false) }
       })
@@ -105,23 +103,17 @@ function TickerCard({ ticker, onRemove }) {
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState(loadWatchlist)
   const [input, setInput] = useState('')
-  const [adding, setAdding] = useState(false)
 
   useEffect(() => { saveWatchlist(watchlist) }, [watchlist])
 
-  const addTicker = async () => {
+  const addTicker = () => {
     const t = input.trim().toUpperCase()
     if (!t) return
     if (watchlist.includes(t)) { toast.error(`${t} already in watchlist`); return }
-    setAdding(true)
-    try {
-      const res = await validateTicker(t)
-      if (!res.valid) { toast.error(`"${t}" not found`); return }
-      setWatchlist(w => [...w, t])
-      setInput('')
-      toast.success(`Added ${t}`)
-    } catch { toast.error('Could not validate ticker') }
-    finally { setAdding(false) }
+    if (!TICKER_RE.test(t)) { toast.error(`"${t}" is not a valid ticker format`); return }
+    setWatchlist(w => [...w, t])
+    setInput('')
+    toast.success(`Added ${t}`)
   }
 
   const removeTicker = (t) => {
@@ -164,9 +156,9 @@ export default function WatchlistPage() {
             onKeyDown={e => e.key === 'Enter' && addTicker()}
             className="input flex-1 font-mono"
           />
-          <button onClick={addTicker} disabled={adding || !input}
+          <button onClick={addTicker} disabled={!input}
             className="btn-primary flex items-center gap-1.5 px-4">
-            {adding ? <span className="spinner !w-4 !h-4" /> : <Plus size={16} />} Add
+            <Plus size={16} /> Add
           </button>
         </div>
 

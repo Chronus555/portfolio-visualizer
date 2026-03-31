@@ -1,7 +1,14 @@
 import { useState, useCallback } from 'react'
 import { X, Plus, SlidersHorizontal } from 'lucide-react'
-import { validateTicker } from '../../api/client'
 import toast from 'react-hot-toast'
+
+// Client-side format check — mirrors the backend regex so no API call is needed.
+// The backend /validate endpoint is just a regex anyway, and on Render's free
+// tier the cold-start delay causes it to time out showing "Could not validate".
+const TICKER_RE = /^[A-Z0-9][A-Z0-9.\-]{0,9}$/
+function isValidTickerFormat(sym) {
+  return Boolean(sym && TICKER_RE.test(sym))
+}
 
 const COLORS = [
   '#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6',
@@ -11,12 +18,10 @@ const COLORS = [
 export default function TickerInput({ assets, onChange, maxAssets = 50, showWeights = true }) {
   const [inputTicker, setInputTicker] = useState('')
   const [inputWeight, setInputWeight] = useState('')
-  const [validating, setValidating] = useState(false)
-
   const totalWeight = assets.reduce((s, a) => s + Number(a.weight || 0), 0)
   const weightOk = Math.abs(totalWeight - 100) <= 0.5
 
-  const addAsset = useCallback(async () => {
+  const addAsset = useCallback(() => {
     const ticker = inputTicker.trim().toUpperCase()
     if (!ticker) return
     if (assets.find((a) => a.ticker === ticker)) {
@@ -27,24 +32,14 @@ export default function TickerInput({ assets, onChange, maxAssets = 50, showWeig
       toast.error(`Maximum ${maxAssets} assets`)
       return
     }
-
-    setValidating(true)
-    try {
-      const result = await validateTicker(ticker)
-      if (!result.valid) {
-        toast.error(`"${ticker}" not found`)
-        setValidating(false)
-        return
-      }
-      const weight = Number(inputWeight) || Math.max(0, Math.round((100 - totalWeight) * 10) / 10)
-      onChange([...assets, { ticker, weight, name: result.name, color: COLORS[assets.length % COLORS.length] }])
-      setInputTicker('')
-      setInputWeight('')
-    } catch {
-      toast.error('Could not validate ticker')
-    } finally {
-      setValidating(false)
+    if (!isValidTickerFormat(ticker)) {
+      toast.error(`"${ticker}" is not a valid ticker format`)
+      return
     }
+    const weight = Number(inputWeight) || Math.max(0, Math.round((100 - totalWeight) * 10) / 10)
+    onChange([...assets, { ticker, weight, name: ticker, color: COLORS[assets.length % COLORS.length] }])
+    setInputTicker('')
+    setInputWeight('')
   }, [inputTicker, inputWeight, assets, onChange, totalWeight, maxAssets])
 
   const removeAsset = (ticker) => onChange(assets.filter((a) => a.ticker !== ticker))
@@ -168,14 +163,10 @@ export default function TickerInput({ assets, onChange, maxAssets = 50, showWeig
         )}
         <button
           onClick={addAsset}
-          disabled={validating || !inputTicker}
+          disabled={!inputTicker}
           className="btn-primary flex items-center gap-1 px-3 py-1.5 text-xs shrink-0"
         >
-          {validating ? (
-            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Plus size={14} />
-          )}
+          <Plus size={14} />
           Add
         </button>
       </div>
