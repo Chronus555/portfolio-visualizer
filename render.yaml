@@ -6,6 +6,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
+    healthCheckPath: /health
 
   # ── Frontend (React static site) ──────────────────────────────────────────
   - type: web
