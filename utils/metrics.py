@@ -42,25 +42,23 @@ def compute_portfolio_returns(
     else:
         groups = ["0"] * len(daily_returns)
 
-    port_returns = []
-    current_w = w.copy()
+    ret_array = daily_returns.values  # (n_days, n_assets)
+    port_rets = np.empty(len(daily_returns))
 
-    prev_group = None
-    for i, (date, row) in enumerate(daily_returns.iterrows()):
-        group = groups[i]
-        if prev_group is not None and group != prev_group:
-            current_w = w.copy()  # rebalance
-        daily_ret = row[tickers].values
-        port_ret = np.dot(current_w, daily_ret)
-        port_returns.append(port_ret)
-        # drift weights
-        current_w = current_w * (1 + daily_ret)
-        total = current_w.sum()
-        if total > 0:
-            current_w = current_w / total
-        prev_group = group
+    # Find period boundaries via direct string comparison (avoids int64 overflow from hash())
+    period_arr = np.asarray(groups)
+    changes = np.where(period_arr[:-1] != period_arr[1:])[0] + 1
+    starts = np.concatenate([[0], changes])
+    ends = np.concatenate([changes, [len(daily_returns)]])
 
-    return pd.Series(port_returns, index=daily_returns.index)
+    for start, end in zip(starts, ends):
+        pr = ret_array[start:end]            # (period_days, n_assets)
+        port_cum = np.cumprod(1 + pr, axis=0) @ w  # weighted cum product
+        port_rets[start] = pr[0] @ w
+        if end - start > 1:
+            port_rets[start + 1:end] = port_cum[1:] / port_cum[:-1] - 1
+
+    return pd.Series(port_rets, index=daily_returns.index)
 
 
 def compute_growth(returns: pd.Series, initial: float = 10000) -> pd.Series:
@@ -93,24 +91,32 @@ def annual_volatility(returns: pd.Series) -> float:
 
 
 def sharpe_ratio(returns: pd.Series, rf_annual: float = 0.0) -> float:
-    """Annualized Sharpe Ratio."""
-    vol = annual_volatility(returns)
+    """Annualized Sharpe Ratio (arithmetic mean excess return / annualized vol)."""
+    if len(returns) < 2:
+        return 0.0
+    daily_rf = (1 + rf_annual) ** (1 / 252) - 1
+    excess = returns - daily_rf
+    vol = excess.std()
     if vol == 0:
         return 0.0
-    return (cagr(returns) - rf_annual) / vol
+    return float(excess.mean() / vol * np.sqrt(252))
 
 
 def sortino_ratio(returns: pd.Series, rf_annual: float = 0.0) -> float:
-    """Annualized Sortino Ratio."""
-    if len(returns) == 0:
+    """Annualized Sortino Ratio.
+
+    Downside deviation = sqrt(mean of squared negative excess returns over ALL
+    periods), annualized. This is the standard semi-deviation formula and
+    correctly penalizes both the frequency and magnitude of losses.
+    """
+    if len(returns) < 2:
         return 0.0
-    neg = returns[returns < 0]
-    if len(neg) < 2:
+    daily_rf = (1 + rf_annual) ** (1 / 252) - 1
+    excess = returns - daily_rf
+    downside = np.sqrt(np.mean(np.minimum(excess, 0) ** 2)) * np.sqrt(252)
+    if downside == 0:
         return 0.0
-    downside = neg.std() * np.sqrt(252)
-    if downside == 0 or np.isnan(downside):
-        return 0.0
-    return (cagr(returns) - rf_annual) / float(downside)
+    return float(excess.mean() * 252 / downside)
 
 
 def max_drawdown(returns: pd.Series) -> float:
@@ -224,6 +230,7 @@ def compute_all_metrics(returns: pd.Series, benchmark_returns: pd.Series = None,
         return {"CAGR": 0, "Annual Volatility": 0, "Sharpe Ratio": 0, "Sortino Ratio": 0,
                 "Max Drawdown": 0, "Calmar Ratio": 0, "Best Year": 0, "Worst Year": 0,
                 "VaR (5%)": 0, "CVaR (5%)": 0, "Tail Ratio": 0, "Skewness": 0, "Kurtosis": 0}
+    _yr = annual_returns(returns)
     metrics = {
         "CAGR": cagr(returns),
         "Annual Volatility": annual_volatility(returns),
@@ -231,8 +238,8 @@ def compute_all_metrics(returns: pd.Series, benchmark_returns: pd.Series = None,
         "Sortino Ratio": sortino_ratio(returns, rf_annual),
         "Max Drawdown": max_drawdown(returns),
         "Calmar Ratio": calmar_ratio(returns),
-        "Best Year": float(annual_returns(returns).max()) if len(returns) > 20 else 0.0,
-        "Worst Year": float(annual_returns(returns).min()) if len(returns) > 20 else 0.0,
+        "Best Year": float(_yr.max()) if len(returns) > 20 else 0.0,
+        "Worst Year": float(_yr.min()) if len(returns) > 20 else 0.0,
         "VaR (5%)": var_historic(returns),
         "CVaR (5%)": cvar_historic(returns),
         "Tail Ratio": tail_ratio(returns),
